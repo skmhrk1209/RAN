@@ -82,7 +82,7 @@ class Model(resnet.Model):
                 )
 
                 masks = Model.attention_block_layer(
-                    inputs=inputs,
+                    inputs=maps,
                     block_fn=block_fn,
                     blocks=attention_block_param.blocks,
                     filters=filters,
