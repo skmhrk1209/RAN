@@ -16,7 +16,7 @@ import residual_attention_network
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", type=str,
-                    default="cifar10_attentive_resnet_model", help="model directory")
+                    default="cifar10_residual_attention_network_model", help="model directory")
 parser.add_argument("--epochs", type=int, default=50, help="training epochs")
 parser.add_argument("--batch", type=int, default=64, help="batch size")
 parser.add_argument('--train', action="store_true", help="with training")

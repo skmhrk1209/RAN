@@ -10,15 +10,6 @@ import residual_attention_network
 
 class Model(residual_attention_network.Model):
 
-    """ implementation of ResNet in TensorFlow
-
-    [1] [Deep Residual Learning for Image Recognition](https://arxiv.org/pdf/1512.03385.pdf) 
-        by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Dec 2015.
-
-    [2] [Identity Mappings in Deep Residual Networks](https://arxiv.org/pdf/1603.05027.pdf) 
-        by Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun, Jul 2016.
-    """
-
     AttentionModuleParam = collections.namedtuple(
         "AttentionModuleParam", (
             "initial_blocks",
