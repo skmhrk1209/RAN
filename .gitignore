@@ -1,2 +1,4 @@
 data/
-cifar10_residual_attention_network_model/
+outputs/
+cifar10_ran_model/
+cifar10_attentive_resnet_model/
