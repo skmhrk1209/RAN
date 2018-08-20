@@ -13,7 +13,8 @@ class Model(resnet.Model):
     """ implementation of RAN in TensorFlow
 
     [1] [Residual Attention Network for Image Classification](https://arxiv.org/pdf/1512.03385.pdf) 
-        by Fei Wang, Mengqing Jiang, Chen Qian, Shuo Yang, Cheng Li, Honggang Zhang, Xiaogang Wang, and Xiaoou Tang, Apr 2017.
+        by Fei Wang, Mengqing Jiang, Chen Qian, Shuo Yang, Cheng Li, 
+        Honggang Zhang, Xiaogang Wang, and Xiaoou Tang, Apr 2017.
     """
 
     AttentionModuleParam = collections.namedtuple(
