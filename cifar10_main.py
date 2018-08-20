@@ -128,14 +128,14 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
                 medial_blocks=2,
                 attention_blocks=1,
                 final_blocks=1,
-                strides=2
+                strides=1
             ),
             ran.Model.AttentionModuleParam(
                 initial_blocks=2,
                 medial_blocks=2,
                 attention_blocks=1,
                 final_blocks=1,
-                strides=2
+                strides=1
             )
         ],
         final_block_param=ran.Model.BlockParam(
