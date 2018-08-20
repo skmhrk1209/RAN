@@ -141,10 +141,6 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
                 blocks=1
             )
         ],
-        final_block_param=attentive_resnet.Model.BlockParam(
-            blocks=3,
-            strides=1
-        ),
         logits_param=attentive_resnet.Model.DenseParam(
             units=10
         ),
