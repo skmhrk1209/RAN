@@ -191,8 +191,8 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
         logits=logits
     )
 
-    loss += tf.add_n([tf.nn.l2_loss(variable) for variable in tf.trainable_variables()
-                      if "resnet" in variable.name]) * params["weight_decay"]
+    loss += tf.add_n([tf.nn.l2_loss(variable)
+                      for variable in tf.trainable_variables()]) * params["weight_decay"]
 
     if mode == tf.estimator.ModeKeys.EVAL:
 
