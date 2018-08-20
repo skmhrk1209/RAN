@@ -28,3 +28,8 @@ def up_sampling2d(size, data_format):
         size=size,
         data_format=data_format
     )
+
+
+def get_channels(inputs, data_format):
+
+    return inputs.get_shape().as_list()[1 if data_format= "channels_first" else 3]

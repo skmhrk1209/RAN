@@ -23,8 +23,7 @@ class Model(resnet.Model):
             "medial_blocks",
             "attention_blocks",
             "final_blocks",
-            "strides",
-            "shortcuts"
+            "strides"
         )
     )
 
@@ -95,8 +94,7 @@ class Model(resnet.Model):
                     final_blocks=attention_module_param.final_blocks,
                     filters=filters,
                     strides=attention_module_param.strides,
-                    projection_shortcut=projection_shortcut,
-                    shortcuts=attention_module_param.shortcuts,
+                    projection_shortcut=projection_shortcut
                     data_format=self.data_format,
                     training=training
                 )
@@ -135,18 +133,7 @@ class Model(resnet.Model):
             return inputs, maps_list, masks_list
 
     @staticmethod
-    def attention_block_layer(inputs, block_fn, blocks, filters, shortcuts, data_format, training):
-
-        if shortcuts >= 2:
-
-            shortcut2 = block_fn(
-                inputs=inputs,
-                filters=filters,
-                strides=1,
-                projection_shortcut=None,
-                data_format=data_format,
-                training=training
-            )
+    def attention_block_layer(inputs, block_fn, blocks, filters, data_format, training):
 
         inputs = tf.layers.max_pooling2d(
             inputs=inputs,
@@ -154,27 +141,27 @@ class Model(resnet.Model):
             strides=2
         )
 
-        for _ in range(blocks):
+        inputs = Model.block_layer(
+            inputs=inputs,
+            block_fn=block_fn,
+            blocks=blocks,
+            filters=filters,
+            strides=1,
+            projection_shortcut=None,
+            data_format=data_format,
+            training=training
+        )
 
-            inputs = block_fn(
-                inputs=inputs,
-                filters=filters,
-                strides=1,
-                projection_shortcut=None,
-                data_format=data_format,
-                training=training
-            )
-
-        if shortcuts >= 1:
-
-            shortcut1 = block_fn(
-                inputs=inputs,
-                filters=filters,
-                strides=1,
-                projection_shortcut=None,
-                data_format=data_format,
-                training=training
-            )
+        shortcut = Model.block_layer(
+            inputs=inputs,
+            block_fn=block_fn,
+            blocks=1,
+            filters=filters,
+            strides=1,
+            projection_shortcut=None,
+            data_format=data_format,
+            training=training
+        )
 
         inputs = tf.layers.max_pooling2d(
             inputs=inputs,
@@ -182,55 +169,48 @@ class Model(resnet.Model):
             strides=2
         )
 
-        for _ in range(blocks):
+        inputs = Model.block_layer(
+            inputs=inputs,
+            block_fn=block_fn,
+            blocks=blocks,
+            filters=filters,
+            strides=1,
+            projection_shortcut=None,
+            data_format=data_format,
+            training=training
+        )
 
-            inputs = block_fn(
-                inputs=inputs,
-                filters=filters,
-                strides=1,
-                projection_shortcut=None,
-                data_format=data_format,
-                training=training
-            )
-
-        for _ in range(blocks):
-
-            inputs = block_fn(
-                inputs=inputs,
-                filters=filters,
-                strides=1,
-                projection_shortcut=None,
-                data_format=data_format,
-                training=training
-            )
-
-        inputs = util.up_sampling2d(2, data_format)(inputs)
-
-        if shortcuts >= 1:
-
-            inputs += shortcut1
-
-        for _ in range(blocks):
-
-            inputs = block_fn(
-                inputs=inputs,
-                filters=filters,
-                strides=1,
-                projection_shortcut=None,
-                data_format=data_format,
-                training=training
-            )
+        inputs = Model.block_layer(
+            inputs=inputs,
+            block_fn=block_fn,
+            blocks=blocks,
+            filters=filters,
+            strides=1,
+            projection_shortcut=None,
+            data_format=data_format,
+            training=training
+        )
 
         inputs = util.up_sampling2d(2, data_format)(inputs)
 
-        if shortcuts >= 2:
+        inputs += shortcut
 
-            inputs += shortcut2
+        inputs = Model.block_layer(
+            inputs=inputs,
+            block_fn=block_fn,
+            blocks=blocks,
+            filters=filters,
+            strides=1,
+            projection_shortcut=None,
+            data_format=data_format,
+            training=training
+        )
 
-        '''
+        inputs = util.up_sampling2d(2, data_format)(inputs)
+
         inputs = tf.layers.conv2d(
             inputs=inputs,
-            filters=filters,
+            filters=util.get_channels(inputs, data_format),
             kernel_size=1,
             strides=1,
             padding="same",
@@ -240,14 +220,13 @@ class Model(resnet.Model):
 
         inputs = tf.layers.conv2d(
             inputs=inputs,
-            filters=filters,
+            filters=util.get_channels(inputs, data_format),
             kernel_size=1,
             strides=1,
             padding="same",
             data_format=data_format,
             kernel_initializer=tf.variance_scaling_initializer(),
         )
-        '''
 
         inputs = tf.nn.sigmoid(inputs)
 
