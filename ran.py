@@ -5,10 +5,16 @@ from __future__ import print_function
 import tensorflow as tf
 import collections
 import util
-import residual_attention_network
+import resnet
 
 
-class Model(residual_attention_network.Model):
+class Model(resnet.Model):
+
+    """ implementation of RAN in TensorFlow
+
+    [1] [Residual Attention Network for Image Classification](https://arxiv.org/pdf/1512.03385.pdf) 
+        by Fei Wang, Mengqing Jiang, Chen Qian, Shuo Yang, Cheng Li, Honggang Zhang, Xiaogang Wang, and Xiaoou Tang, Apr 2017.
+    """
 
     AttentionModuleParam = collections.namedtuple(
         "AttentionModuleParam", (
@@ -41,7 +47,7 @@ class Model(residual_attention_network.Model):
 
         projection_shortcut = Model.projection_shortcut
 
-        with tf.variable_scope("residual_attention_network"):
+        with tf.variable_scope("ran"):
 
             inputs = tf.layers.conv2d(
                 inputs=inputs,

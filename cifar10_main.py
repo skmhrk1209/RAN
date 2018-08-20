@@ -11,12 +11,10 @@ import os
 import functools
 import itertools
 import cv2
-
-import residual_attention_network
+import ran
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", type=str,
-                    default="cifar10_residual_attention_network_model", help="model directory")
+parser.add_argument("--model", type=str, default="cifar10_ran_model", help="model directory")
 parser.add_argument("--epochs", type=int, default=50, help="training epochs")
 parser.add_argument("--batch", type=int, default=64, help="batch size")
 parser.add_argument('--train', action="store_true", help="with training")
@@ -105,20 +103,20 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
 
         inputs = tf.transpose(inputs, [0, 3, 1, 2])
 
-    residual_attention_network_model = residual_attention_network.Model(
-        initial_conv_param=residual_attention_network.Model.ConvParam(
+    ran_model = ran.Model(
+        initial_conv_param=ran.Model.ConvParam(
             filters=16,
             kernel_size=3,
             strides=1
         ),
-        initial_pool_param=residual_attention_network.Model.PoolParam(
+        initial_pool_param=ran.Model.PoolParam(
             pool_size=1,
             strides=1
         ),
         bottleneck=True,
         version=2,
         attention_module_params=[
-            residual_attention_network.Model.AttentionModuleParam(
+            ran.Model.AttentionModuleParam(
                 initial_blocks=2,
                 medial_blocks=2,
                 attention_blocks=1,
@@ -126,7 +124,7 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
                 strides=1,
                 shortcuts=2
             ),
-            residual_attention_network.Model.AttentionModuleParam(
+            ran.Model.AttentionModuleParam(
                 initial_blocks=2,
                 medial_blocks=2,
                 attention_blocks=1,
@@ -134,7 +132,7 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
                 strides=2,
                 shortcuts=1
             ),
-            residual_attention_network.Model.AttentionModuleParam(
+            ran.Model.AttentionModuleParam(
                 initial_blocks=2,
                 medial_blocks=2,
                 attention_blocks=1,
@@ -143,17 +141,17 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
                 shortcuts=0
             )
         ],
-        final_block_param=residual_attention_network.Model.BlockParam(
+        final_block_param=ran.Model.BlockParam(
             blocks=3,
             strides=1
         ),
-        logits_param=residual_attention_network.Model.DenseParam(
+        logits_param=ran.Model.DenseParam(
             units=10
         ),
         channels_first=channels_first
     )
 
-    logits, maps_list, masks_list = residual_attention_network_model(
+    logits, maps_list, masks_list = ran_model(
         inputs=inputs,
         training=mode == tf.estimator.ModeKeys.TRAIN
     )

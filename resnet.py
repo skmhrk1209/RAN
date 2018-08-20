@@ -42,7 +42,7 @@ class Model(object):
 
         projection_shortcut = Model.projection_shortcut
 
-        with tf.variable_scope("residual_network"):
+        with tf.variable_scope("resnet"):
 
             inputs = tf.layers.conv2d(
                 inputs=inputs,
