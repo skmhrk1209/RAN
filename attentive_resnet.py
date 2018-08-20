@@ -63,11 +63,14 @@ class Model(resnet.Model):
                 data_format=self.data_format
             )
 
+            maps_list = []
+            masks_list = []
+
             for i, (block_param, attention_block_param) in enumerate(zip(self.block_params, self.attention_block_params)):
 
                 filters = self.initial_conv_param.filters << i
 
-                inputs = Model.block_layer(
+                maps = Model.block_layer(
                     inputs=inputs,
                     block_fn=block_fn,
                     blocks=block_param.blocks,
@@ -78,7 +81,7 @@ class Model(resnet.Model):
                     training=training
                 )
 
-                attentions = Model.attention_block_layer(
+                masks = Model.attention_block_layer(
                     inputs=inputs,
                     block_fn=block_fn,
                     blocks=attention_block_param.blocks,
@@ -87,7 +90,10 @@ class Model(resnet.Model):
                     training=training
                 )
 
-                inputs *= (1 + attentions)
+                inputs = (1 + masks) * maps
+
+                maps_list.append(maps)
+                masks_list.append(masks)
 
             if self.version == 2:
 
@@ -106,7 +112,7 @@ class Model(resnet.Model):
                 units=self.logits_param.units
             )
 
-            return inputs
+            return inputs, maps_list, masks_list
 
     @staticmethod
     def attention_block_layer(inputs, block_fn, blocks, filters, data_format, training):
