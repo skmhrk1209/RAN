@@ -94,7 +94,7 @@ class Model(resnet.Model):
                     final_blocks=attention_module_param.final_blocks,
                     filters=filters,
                     strides=attention_module_param.strides,
-                    projection_shortcut=projection_shortcut
+                    projection_shortcut=projection_shortcut,
                     data_format=self.data_format,
                     training=training
                 )
@@ -234,7 +234,7 @@ class Model(resnet.Model):
 
     @staticmethod
     def attention_module(inputs, block_fn, initial_blocks, medial_blocks, attention_blocks, final_blocks,
-                         filters, strides, projection_shortcut, shortcuts, data_format, training):
+                         filters, strides, projection_shortcut, data_format, training):
 
         inputs = Model.block_layer(
             inputs=inputs,
@@ -263,7 +263,6 @@ class Model(resnet.Model):
             block_fn=block_fn,
             blocks=attention_blocks,
             filters=filters,
-            shortcuts=shortcuts,
             data_format=data_format,
             training=training
         )
