@@ -124,11 +124,11 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
             ),
             attentive_resnet_2.Model.BlockParam(
                 blocks=5,
-                strides=2
+                strides=1
             ),
             attentive_resnet_2.Model.BlockParam(
                 blocks=5,
-                strides=2
+                strides=1
             )
         ],
         attention_block_param=attentive_resnet_2.Model.AttentionBlockParam(
