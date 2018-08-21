@@ -134,17 +134,6 @@ class Model(resnet.Model):
             training=training
         )
 
-        shortcut = Model.block_layer(
-            inputs=inputs,
-            block_fn=block_fn,
-            blocks=1,
-            filters=filters,
-            strides=1,
-            projection_shortcut=None,
-            data_format=data_format,
-            training=training
-        )
-
         inputs = tf.layers.max_pooling2d(
             inputs=inputs,
             pool_size=2,
@@ -174,8 +163,6 @@ class Model(resnet.Model):
         )
 
         inputs = util.up_sampling2d(2, data_format)(inputs)
-
-        inputs += shortcut
 
         inputs = Model.block_layer(
             inputs=inputs,

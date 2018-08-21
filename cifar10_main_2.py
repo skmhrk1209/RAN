@@ -87,7 +87,8 @@ def cifar10_input_fn(data_dir, training, num_epochs=1, batch_size=1):
 
     filenames = get_filenames(data_dir, training)
     dataset = tf.data.FixedLengthRecordDataset(filenames, 32 * 32 * 3 + 1)
-    dataset = dataset.shuffle(50000)
+    if training:
+        dataset = dataset.shuffle(50000)
     dataset = dataset.repeat(num_epochs)
     dataset = dataset.map(functools.partial(parse, training=training))
     dataset = dataset.batch(batch_size)
@@ -309,21 +310,25 @@ def main(unused_argv):
             maps_list = [predict_result["maps{}".format(i)] for i in range(3)]
             masks_list = [predict_result["masks{}".format(i)] for i in range(3)]
 
-            cv2.imwrite("outputs/image{}.jpeg".format(i), image)
+            image = scale(image, image.min(), image.max(), 0., 255.).astype(np.uint8)
+
+            cv2.imwrite("outputs2/image{}.jpeg".format(i), image)
 
             for j, maps in enumerate(maps_list):
 
                 for k, map in enumerate(maps):
 
-                    cv2.imwrite("outputs/map{}_{}_{}.jpeg".format(i, j, k),
-                                scale(map, map.min(), map.max(), 0., 1.))
+                    map = scale(map, map.min(), map.max(), 0., 255.).astype(np.uint8)
+
+                    cv2.imwrite("outputs2/map{}_{}_{}.jpeg".format(i, j, k), map)
 
             for j, masks in enumerate(masks_list):
 
                 for k, mask in enumerate(masks):
 
-                    cv2.imwrite("outputs/mask{}_{}_{}.jpeg".format(i, j, k),
-                                scale(mask, mask.min(), mask.max(), 0., 1.))
+                    mask = scale(mask, mask.min(), mask.max(), 0., 255.).astype(np.uint8)
+
+                    cv2.imwrite("outputs2/mask{}_{}_{}.jpeg".format(i, j, k), mask)
 
 
 if __name__ == "__main__":

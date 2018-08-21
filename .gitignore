@@ -1,4 +1,7 @@
 data/
 outputs/
+outputs2/
+outputs3/
 cifar10_ran_model/
 cifar10_attentive_resnet_model/
+cifar10_attentive_resnet_2_model/
