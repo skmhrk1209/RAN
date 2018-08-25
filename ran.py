@@ -10,32 +10,24 @@ import resnet
 
 class Model(resnet.Model):
 
-    """ implementation of RAN in TensorFlow
+    """ implementation of RAN in TensorFlow (improved version)
 
     [1] [Residual Attention Network for Image Classification](https://arxiv.org/pdf/1512.03385.pdf) 
         by Fei Wang, Mengqing Jiang, Chen Qian, Shuo Yang, Cheng Li, 
         Honggang Zhang, Xiaogang Wang, and Xiaoou Tang, Apr 2017.
     """
 
-    AttentionModuleParam = collections.namedtuple(
-        "AttentionModuleParam", (
-            "initial_blocks",
-            "medial_blocks",
-            "attention_blocks",
-            "final_blocks",
-            "strides"
-        )
-    )
+    AttentionBlockParam = collections.namedtuple("AttentionBlockParam", ("blocks"))
 
     def __init__(self, initial_conv_param, initial_pool_param,
-                 bottleneck, version, attention_module_params, final_block_param, logits_param, channels_first):
+                 bottleneck, version, block_params, attention_block_params, logits_param, channels_first):
 
         self.initial_conv_param = initial_conv_param
         self.initial_pool_param = initial_pool_param
         self.bottleneck = bottleneck
         self.version = version
-        self.attention_module_params = attention_module_params
-        self.final_block_param = final_block_param
+        self.block_params = block_params
+        self.attention_block_params = attention_block_params
         self.logits_param = logits_param
         self.channels_first = channels_first
         self.data_format = "channels_first" if channels_first else "channels_last"
@@ -47,7 +39,7 @@ class Model(resnet.Model):
 
         projection_shortcut = Model.projection_shortcut
 
-        with tf.variable_scope("ran"):
+        with tf.variable_scope("resnet"):
 
             inputs = tf.layers.conv2d(
                 inputs=inputs,
@@ -81,37 +73,34 @@ class Model(resnet.Model):
             maps_list = []
             masks_list = []
 
-            for i, attention_module_param in enumerate(self.attention_module_params):
+            for i, (block_param, attention_block_param) in enumerate(zip(self.block_params, self.attention_block_params)):
 
                 filters = self.initial_conv_param.filters << i
 
-                inputs, maps, masks = Model.attention_module(
+                maps = Model.block_layer(
                     inputs=inputs,
                     block_fn=block_fn,
-                    initial_blocks=attention_module_param.initial_blocks,
-                    medial_blocks=attention_module_param.medial_blocks,
-                    attention_blocks=attention_module_param.attention_blocks,
-                    final_blocks=attention_module_param.final_blocks,
+                    blocks=block_param.blocks,
                     filters=filters,
-                    strides=attention_module_param.strides,
+                    strides=block_param.strides,
                     projection_shortcut=projection_shortcut,
                     data_format=self.data_format,
                     training=training
                 )
 
+                masks = Model.attention_block_layer(
+                    inputs=maps,
+                    block_fn=block_fn,
+                    blocks=attention_block_param.blocks,
+                    filters=filters,
+                    data_format=self.data_format,
+                    training=training
+                )
+
+                inputs = (1 + masks) * maps
+
                 maps_list.append(maps)
                 masks_list.append(masks)
-
-            inputs = Model.block_layer(
-                inputs=inputs,
-                block_fn=block_fn,
-                blocks=self.final_block_param.blocks,
-                filters=filters << 1,
-                strides=self.final_block_param.strides,
-                projection_shortcut=projection_shortcut,
-                data_format=self.data_format,
-                training=training
-            )
 
             if self.version == 2:
 
@@ -152,17 +141,6 @@ class Model(resnet.Model):
             training=training
         )
 
-        shortcut = Model.block_layer(
-            inputs=inputs,
-            block_fn=block_fn,
-            blocks=1,
-            filters=filters,
-            strides=1,
-            projection_shortcut=None,
-            data_format=data_format,
-            training=training
-        )
-
         inputs = tf.layers.max_pooling2d(
             inputs=inputs,
             pool_size=2,
@@ -193,8 +171,6 @@ class Model(resnet.Model):
 
         inputs = util.up_sampling2d(2, data_format)(inputs)
 
-        inputs += shortcut
-
         inputs = Model.block_layer(
             inputs=inputs,
             block_fn=block_fn,
@@ -208,81 +184,6 @@ class Model(resnet.Model):
 
         inputs = util.up_sampling2d(2, data_format)(inputs)
 
-        inputs = tf.layers.conv2d(
-            inputs=inputs,
-            filters=util.get_channels(inputs, data_format),
-            kernel_size=1,
-            strides=1,
-            padding="same",
-            data_format=data_format,
-            kernel_initializer=tf.variance_scaling_initializer(),
-        )
-
-        inputs = tf.layers.conv2d(
-            inputs=inputs,
-            filters=util.get_channels(inputs, data_format),
-            kernel_size=1,
-            strides=1,
-            padding="same",
-            data_format=data_format,
-            kernel_initializer=tf.variance_scaling_initializer(),
-        )
-
         inputs = tf.nn.sigmoid(inputs)
 
         return inputs
-
-    @staticmethod
-    def attention_module(inputs, block_fn, initial_blocks, medial_blocks, attention_blocks, final_blocks,
-                         filters, strides, projection_shortcut, data_format, training):
-
-        inputs = Model.block_layer(
-            inputs=inputs,
-            block_fn=block_fn,
-            blocks=initial_blocks,
-            filters=filters,
-            strides=strides,
-            projection_shortcut=projection_shortcut,
-            data_format=data_format,
-            training=training
-        )
-
-        maps = Model.block_layer(
-            inputs=inputs,
-            block_fn=block_fn,
-            blocks=medial_blocks,
-            filters=filters,
-            strides=1,
-            projection_shortcut=None,
-            data_format=data_format,
-            training=training
-        )
-
-        masks = Model.attention_block_layer(
-            inputs=inputs,
-            block_fn=block_fn,
-            blocks=attention_blocks,
-            filters=filters,
-            data_format=data_format,
-            training=training
-        )
-
-        inputs = tf.multiply(
-            x=maps,
-            y=masks
-        )
-
-        inputs += maps
-
-        inputs = Model.block_layer(
-            inputs=inputs,
-            block_fn=block_fn,
-            blocks=final_blocks,
-            filters=filters,
-            strides=1,
-            projection_shortcut=None,
-            data_format=data_format,
-            training=training
-        )
-
-        return inputs, maps, masks

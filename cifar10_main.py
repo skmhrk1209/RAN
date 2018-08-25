@@ -86,8 +86,7 @@ def cifar10_input_fn(data_dir, training, num_epochs=1, batch_size=1):
 
     filenames = get_filenames(data_dir, training)
     dataset = tf.data.FixedLengthRecordDataset(filenames, 32 * 32 * 3 + 1)
-    if training:
-        dataset = dataset.shuffle(50000)
+    dataset = dataset.shuffle(50000)
     dataset = dataset.repeat(num_epochs)
     dataset = dataset.map(functools.partial(parse, training=training))
     dataset = dataset.batch(batch_size)
@@ -116,33 +115,31 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
         ),
         bottleneck=True,
         version=2,
-        attention_module_params=[
-            ran.Model.AttentionModuleParam(
-                initial_blocks=2,
-                medial_blocks=2,
-                attention_blocks=1,
-                final_blocks=1,
+        block_params=[
+            ran.Model.BlockParam(
+                blocks=5,
                 strides=1
             ),
-            ran.Model.AttentionModuleParam(
-                initial_blocks=2,
-                medial_blocks=2,
-                attention_blocks=1,
-                final_blocks=1,
-                strides=1
+            ran.Model.BlockParam(
+                blocks=5,
+                strides=2
             ),
-            ran.Model.AttentionModuleParam(
-                initial_blocks=2,
-                medial_blocks=2,
-                attention_blocks=1,
-                final_blocks=1,
-                strides=1
+            ran.Model.BlockParam(
+                blocks=5,
+                strides=2
             )
         ],
-        final_block_param=ran.Model.BlockParam(
-            blocks=3,
-            strides=1
-        ),
+        attention_block_params=[
+            ran.Model.AttentionBlockParam(
+                blocks=1
+            ),
+            ran.Model.AttentionBlockParam(
+                blocks=1
+            ),
+            ran.Model.AttentionBlockParam(
+                blocks=1
+            )
+        ],
         logits_param=ran.Model.DenseParam(
             units=10
         ),

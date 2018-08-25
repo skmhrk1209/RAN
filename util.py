@@ -10,7 +10,7 @@ def batch_normalization(data_format):
 
     return functools.partial(
         tf.layers.batch_normalization,
-        axis=1 if data_format == "channels_first" else 3
+        axis=(1 if data_format == "channels_first" else 3)
     )
 
 
@@ -18,7 +18,7 @@ def global_average_pooling2d(data_format):
 
     return functools.partial(
         tf.reduce_mean,
-        axis=[2, 3] if data_format == "channels_first" else [1, 2]
+        axis=([2, 3] if data_format == "channels_first" else [1, 2])
     )
 
 
@@ -43,4 +43,4 @@ def flatten_images(inputs, data_format):
 
 def get_channels(inputs, data_format):
 
-    return inputs.get_shape().as_list()[1 if data_format == "channels_first" else 3]
+    return inputs.get_shape().as_list()[(1 if data_format == "channels_first" else 3)]
