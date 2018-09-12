@@ -18505,8 +18505,8 @@ node {
   }
 }
 node {
-  name: "Relu_7"
-  op: "Relu"
+  name: "Sigmoid"
+  op: "Sigmoid"
   input: "batch_normalization_8/FusedBatchNorm"
   attr {
     key: "T"
@@ -18649,7 +18649,7 @@ node {
 node {
   name: "Reshape_3"
   op: "Reshape"
-  input: "Relu_7"
+  input: "Sigmoid"
   input: "Reshape_3/shape"
   attr {
     key: "T"
@@ -21122,7 +21122,7 @@ node {
   }
 }
 node {
-  name: "Relu_8"
+  name: "Relu_7"
   op: "Relu"
   input: "batch_normalization_9/batchnorm/add_1"
   attr {
@@ -21731,7 +21731,7 @@ node {
 node {
   name: "dense_4/MatMul"
   op: "MatMul"
-  input: "Relu_8"
+  input: "Relu_7"
   input: "dense_3/kernel/read"
   attr {
     key: "T"
@@ -21887,6 +21887,158 @@ node {
           }
           dim {
             size: 10
+          }
+        }
+      }
+    }
+  }
+}
+node {
+  name: "Reshape_4/shape"
+  op: "Const"
+  input: "^add"
+  attr {
+    key: "_output_shapes"
+    value {
+      list {
+        shape {
+          dim {
+            size: 4
+          }
+        }
+      }
+    }
+  }
+  attr {
+    key: "dtype"
+    value {
+      type: DT_INT32
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_INT32
+        tensor_shape {
+          dim {
+            size: 4
+          }
+        }
+        tensor_content: "\377\377\377\377\034\000\000\000\034\000\000\000\001\000\000\000"
+      }
+    }
+  }
+}
+node {
+  name: "Reshape_4"
+  op: "Reshape"
+  input: "random_shuffle_queue_DequeueMany:1"
+  input: "Reshape_4/shape"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "Tshape"
+    value {
+      type: DT_INT32
+    }
+  }
+  attr {
+    key: "_output_shapes"
+    value {
+      list {
+        shape {
+          dim {
+            size: 100
+          }
+          dim {
+            size: 28
+          }
+          dim {
+            size: 28
+          }
+          dim {
+            size: 1
+          }
+        }
+      }
+    }
+  }
+}
+node {
+  name: "Reshape_5/shape"
+  op: "Const"
+  input: "^add"
+  attr {
+    key: "_output_shapes"
+    value {
+      list {
+        shape {
+          dim {
+            size: 4
+          }
+        }
+      }
+    }
+  }
+  attr {
+    key: "dtype"
+    value {
+      type: DT_INT32
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_INT32
+        tensor_shape {
+          dim {
+            size: 4
+          }
+        }
+        tensor_content: "\377\377\377\377\034\000\000\000\034\000\000\000\001\000\000\000"
+      }
+    }
+  }
+}
+node {
+  name: "Reshape_5"
+  op: "Reshape"
+  input: "Reshape_3"
+  input: "Reshape_5/shape"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "Tshape"
+    value {
+      type: DT_INT32
+    }
+  }
+  attr {
+    key: "_output_shapes"
+    value {
+      list {
+        shape {
+          dim {
+            size: 900
+          }
+          dim {
+            size: 28
+          }
+          dim {
+            size: 28
+          }
+          dim {
+            size: 1
           }
         }
       }
@@ -24968,7 +25120,7 @@ node {
 node {
   name: "gradients/dense_4/MatMul_grad/MatMul_1"
   op: "MatMul"
-  input: "Relu_8"
+  input: "Relu_7"
   input: "gradients/dense_4/BiasAdd_grad/tuple/control_dependency"
   attr {
     key: "T"
@@ -25100,10 +25252,10 @@ node {
   }
 }
 node {
-  name: "gradients/Relu_8_grad/ReluGrad"
+  name: "gradients/Relu_7_grad/ReluGrad"
   op: "ReluGrad"
   input: "gradients/dense_4/MatMul_grad/tuple/control_dependency"
-  input: "Relu_8"
+  input: "Relu_7"
   attr {
     key: "T"
     value {
@@ -25268,7 +25420,7 @@ node {
 node {
   name: "gradients/batch_normalization_9/batchnorm/add_1_grad/Sum"
   op: "Sum"
-  input: "gradients/Relu_8_grad/ReluGrad"
+  input: "gradients/Relu_7_grad/ReluGrad"
   input: "gradients/batch_normalization_9/batchnorm/add_1_grad/BroadcastGradientArgs"
   attr {
     key: "T"
@@ -25335,7 +25487,7 @@ node {
 node {
   name: "gradients/batch_normalization_9/batchnorm/add_1_grad/Sum_1"
   op: "Sum"
-  input: "gradients/Relu_8_grad/ReluGrad"
+  input: "gradients/Relu_7_grad/ReluGrad"
   input: "gradients/batch_normalization_9/batchnorm/add_1_grad/BroadcastGradientArgs:1"
   attr {
     key: "T"
@@ -31385,10 +31537,10 @@ node {
   }
 }
 node {
-  name: "gradients/Relu_7_grad/ReluGrad"
-  op: "ReluGrad"
+  name: "gradients/Sigmoid_grad/SigmoidGrad"
+  op: "SigmoidGrad"
+  input: "Sigmoid"
   input: "gradients/Reshape_3_grad/Reshape"
-  input: "Relu_7"
   attr {
     key: "T"
     value {
@@ -31584,7 +31736,7 @@ node {
 node {
   name: "gradients/batch_normalization_8/FusedBatchNorm_grad/FusedBatchNormGrad"
   op: "FusedBatchNormGrad"
-  input: "gradients/Relu_7_grad/ReluGrad"
+  input: "gradients/Sigmoid_grad/SigmoidGrad"
   input: "conv2d_transpose_2/BiasAdd"
   input: "batch_normalization_7/gamma/read"
   input: "batch_normalization_8/FusedBatchNorm:3"
@@ -75464,7 +75616,7 @@ node {
         dtype: DT_STRING
         tensor_shape {
         }
-        string_val: "_temp_9aa0c9525602441fb3c0dbec8d020d6d/part"
+        string_val: "_temp_02ce5a79b61f4ea394106850e6a01041/part"
       }
     }
   }
