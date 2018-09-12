@@ -12,15 +12,19 @@ import operator
 import utils
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--step", type=int, default=10000, help="training steps")
+parser.add_argument("--steps", type=int, default=10000, help="training steps")
 parser.add_argument("--batch", type=int, default=100, help="batch size")
 parser.add_argument("--model", type=str, default="mnist_acnn_model", help="model directory")
+parser.add_argument('--train', action="store_true", help="with training")
+parser.add_argument('--eval', action="store_true", help="with evaluation")
+parser.add_argument('--predict', action="store_true", help="with prediction")
+parser.add_argument('--gpu', type=str, default="0", help="gpu id")
 args = parser.parse_args()
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
-def acnn_model_fn(features, labels, mode, data_format):
+def acnn_model_fn(features, labels, mode, size, data_format):
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     model function for ACNN
 
@@ -34,7 +38,7 @@ def acnn_model_fn(features, labels, mode, data_format):
     (-1, 28, 28, 1) -> (-1, 28, 28, 32)
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-    inputs = features["x"]
+    inputs = features["images"]
 
     if data_format == "channels_first":
 
@@ -42,7 +46,7 @@ def acnn_model_fn(features, labels, mode, data_format):
 
     inputs = utils.chunk_images(
         inputs=inputs,
-        size=[28, 28],
+        size=size,
         data_format=data_format
     )
 
@@ -272,8 +276,15 @@ def acnn_model_fn(features, labels, mode, data_format):
         "probabilities": tf.nn.softmax(
             logits=logits,
             name="softmax_tensor"
+        ),
+        "attentions": utils.chunk_images(
+            inputs=attentions,
+            size=size,
+            data_format="channels_last"
         )
     }
+
+    predictions.update(features)
 
     if mode == tf.estimator.ModeKeys.PREDICT:
 
@@ -321,49 +332,94 @@ def acnn_model_fn(features, labels, mode, data_format):
 def main(unused_argv):
 
     mnist = tf.contrib.learn.datasets.load_dataset("mnist")
-    train_data = mnist.train.images
-    eval_data = mnist.test.images
+    train_images = mnist.train.images
+    eval_images = mnist.test.images
     train_labels = mnist.train.labels.astype(np.int32)
     eval_labels = mnist.test.labels.astype(np.int32)
 
     mnist_classifier = tf.estimator.Estimator(
-        model_fn=functools.partial(acnn_model_fn, data_format="channels_last"),
-        model_dir=args.model
+        model_fn=functools.partial(
+            acnn_model_fn,
+            size=[28, 28],
+            data_format="channels_last"
+        ),
+        model_dir=args.model,
+        config=tf.estimator.RunConfig().replace(
+            session_config=tf.ConfigProto(
+                gpu_options=tf.GPUOptions(
+                    visible_device_list=args.gpu
+                )
+            )
+        )
     )
 
-    train_input_fn = tf.estimator.inputs.numpy_input_fn(
-        x={"x": train_data},
-        y=train_labels,
-        batch_size=args.batch,
-        num_epochs=None,
-        shuffle=True
-    )
+    if args.train:
 
-    logging_hook = tf.train.LoggingTensorHook(
-        tensors={
-            "probabilities": "softmax_tensor"
-        },
-        every_n_iter=100
-    )
+        train_input_fn = tf.estimator.inputs.numpy_input_fn(
+            x={"images": train_images},
+            y=train_labels,
+            batch_size=args.batch,
+            num_epochs=None,
+            shuffle=True
+        )
 
-    mnist_classifier.train(
-        input_fn=train_input_fn,
-        max_steps=args.step,
-        hooks=[logging_hook]
-    )
+        logging_hook = tf.train.LoggingTensorHook(
+            tensors={
+                "probabilities": "softmax_tensor"
+            },
+            every_n_iter=100
+        )
 
-    eval_input_fn = tf.estimator.inputs.numpy_input_fn(
-        x={"x": eval_data},
-        y=eval_labels,
-        num_epochs=1,
-        shuffle=False
-    )
+        mnist_classifier.train(
+            input_fn=train_input_fn,
+            max_steps=args.steps,
+            hooks=[logging_hook]
+        )
 
-    eval_results = mnist_classifier.evaluate(
-        input_fn=eval_input_fn
-    )
+    if args.eval:
 
-    print(eval_results)
+        eval_input_fn = tf.estimator.inputs.numpy_input_fn(
+            x={"images": eval_images},
+            y=eval_labels,
+            num_epochs=1,
+            shuffle=False
+        )
+
+        eval_results = mnist_classifier.evaluate(
+            input_fn=eval_input_fn
+        )
+
+        print(eval_results)
+
+    if args.predict:
+
+        predict_input_fn = tf.estimator.inputs.numpy_input_fn(
+            x={"images": eval_images},
+            y=eval_labels,
+            num_epochs=1,
+            shuffle=False
+        )
+
+        predict_results = mnist_classifier.predict(
+            input_fn=predict_input_fn
+        )
+
+        for predict_result in predict_results:
+
+            def scale(in_val, in_min, in_max, out_min, out_max):
+                return out_min + (in_val - in_min) / (in_max - in_min) * (out_max - out_min)
+
+            image = predict_result["images"]
+            attention = predict_result["attentions"]
+
+            image = image.repeat(repeats=3, axis=-1)
+            image[:, :, 0] += np.apply_along_axis(func1d=np.sum, axis=-1, arr=attention)
+
+            cv2.imshow("image", image)
+
+            if cv2.waitKey(1000) == ord("q"):
+
+                break
 
 
 if __name__ == "__main__":
