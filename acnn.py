@@ -220,7 +220,7 @@ def acnn_model_fn(features, labels, mode, size, data_format):
         fused=True
     )
 
-    attentions = tf.nn.relu(attentions)
+    attentions = tf.nn.sigmoid(attentions)
 
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     extract layer
@@ -277,14 +277,17 @@ def acnn_model_fn(features, labels, mode, size, data_format):
             logits=logits,
             name="softmax_tensor"
         ),
+        "images": utils.chunk_images(
+            inputs=features["images"],
+            size=size,
+            data_format="channels_last"
+        ),
         "attentions": utils.chunk_images(
             inputs=attentions,
             size=size,
             data_format="channels_last"
         )
     }
-
-    predictions.update(features)
 
     if mode == tf.estimator.ModeKeys.PREDICT:
 
@@ -405,9 +408,6 @@ def main(unused_argv):
         )
 
         for predict_result in predict_results:
-
-            def scale(in_val, in_min, in_max, out_min, out_max):
-                return out_min + (in_val - in_min) / (in_max - in_min) * (out_max - out_min)
 
             image = predict_result["images"]
             attention = predict_result["attentions"]
