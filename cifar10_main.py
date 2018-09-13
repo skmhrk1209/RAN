@@ -104,8 +104,8 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
         inputs = tf.transpose(inputs, [0, 3, 1, 2])
 
     ran_model = ran.Model(
+        filters=16,
         initial_conv_param=ran.Model.ConvParam(
-            filters=16,
             kernel_size=3,
             strides=1
         ),

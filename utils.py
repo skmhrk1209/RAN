@@ -43,6 +43,8 @@ def flatten_images(inputs, data_format):
 
 def chunk_images(inputs, size, data_format):
 
+    inputs = tf.layers.flatten(inputs)
+
     shape = inputs.get_shape().as_list()
 
     return tf.reshape(

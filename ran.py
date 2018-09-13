@@ -4,8 +4,8 @@ from __future__ import print_function
 
 import tensorflow as tf
 import collections
-import util
 import resnet
+import utils
 
 
 class Model(resnet.Model):
@@ -19,31 +19,33 @@ class Model(resnet.Model):
 
     AttentionBlockParam = collections.namedtuple("AttentionBlockParam", ("blocks"))
 
-    def __init__(self, initial_conv_param, initial_pool_param,
-                 bottleneck, version, block_params, attention_block_params, logits_param, channels_first):
+    def __init__(self, filters, initial_conv_param, initial_pool_param,
+                 block_params, attention_block_params, bottleneck, version,
+                 logits_param, channels_first):
 
+        self.filters = filters
         self.initial_conv_param = initial_conv_param
         self.initial_pool_param = initial_pool_param
-        self.bottleneck = bottleneck
-        self.version = version
         self.block_params = block_params
         self.attention_block_params = attention_block_params
+        self.bottleneck = bottleneck
+        self.version = version
         self.logits_param = logits_param
         self.channels_first = channels_first
         self.data_format = "channels_first" if channels_first else "channels_last"
 
+        self.block_fn = ((Model.bottleneck_block_v1 if self.version == 1 else Model.bottleneck_block_v2) if self.bottleneck else
+                         (Model.building_block_v1 if self.version == 1 else Model.building_block_v2))
+
+        self.projection_shortcut = Model.projection_shortcut
+
     def __call__(self, inputs, training):
-
-        block_fn = ((Model.bottleneck_block_v1 if self.version == 1 else Model.bottleneck_block_v2) if self.bottleneck else
-                    (Model.building_block_v1 if self.version == 1 else Model.building_block_v2))
-
-        projection_shortcut = Model.projection_shortcut
 
         with tf.variable_scope("resnet"):
 
             inputs = tf.layers.conv2d(
                 inputs=inputs,
-                filters=self.initial_conv_param.filters,
+                filters=self.filters,
                 kernel_size=self.initial_conv_param.kernel_size,
                 strides=self.initial_conv_param.strides,
                 padding="same",
@@ -54,7 +56,7 @@ class Model(resnet.Model):
 
             if self.version == 1:
 
-                inputs = util.batch_normalization(self.data_format)(
+                inputs = utils.batch_normalization(self.data_format)(
                     inputs=inputs,
                     training=training,
                     fused=True
@@ -75,24 +77,22 @@ class Model(resnet.Model):
 
             for i, (block_param, attention_block_param) in enumerate(zip(self.block_params, self.attention_block_params)):
 
-                filters = self.initial_conv_param.filters << i
-
                 maps = Model.block_layer(
                     inputs=inputs,
-                    block_fn=block_fn,
+                    block_fn=self.block_fn,
                     blocks=block_param.blocks,
-                    filters=filters,
+                    filters=self.filters << i,
                     strides=block_param.strides,
-                    projection_shortcut=projection_shortcut,
+                    projection_shortcut=self.projection_shortcut,
                     data_format=self.data_format,
                     training=training
                 )
 
                 masks = Model.attention_block_layer(
                     inputs=maps,
-                    block_fn=block_fn,
+                    block_fn=self.block_fn,
                     blocks=attention_block_param.blocks,
-                    filters=filters,
+                    filters=self.filters << i,
                     data_format=self.data_format,
                     training=training
                 )
@@ -104,7 +104,7 @@ class Model(resnet.Model):
 
             if self.version == 2:
 
-                inputs = util.batch_normalization(self.data_format)(
+                inputs = utils.batch_normalization(self.data_format)(
                     inputs=inputs,
                     training=training,
                     fused=True
@@ -112,7 +112,7 @@ class Model(resnet.Model):
 
                 inputs = tf.nn.relu(inputs)
 
-            inputs = util.global_average_pooling2d(self.data_format)(inputs)
+            inputs = utils.global_average_pooling2d(self.data_format)(inputs)
 
             inputs = tf.layers.dense(
                 inputs=inputs,
@@ -169,7 +169,7 @@ class Model(resnet.Model):
             training=training
         )
 
-        inputs = util.up_sampling2d(2, data_format)(inputs)
+        inputs = utils.up_sampling2d(2, data_format)(inputs)
 
         inputs = Model.block_layer(
             inputs=inputs,
@@ -182,7 +182,7 @@ class Model(resnet.Model):
             training=training
         )
 
-        inputs = util.up_sampling2d(2, data_format)(inputs)
+        inputs = utils.up_sampling2d(2, data_format)(inputs)
 
         inputs = tf.nn.sigmoid(inputs)
 
