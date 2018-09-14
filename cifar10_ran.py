@@ -14,9 +14,9 @@ import cv2
 import ran
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", type=str, default="cifar10_ran_model", help="model directory")
-parser.add_argument("--epochs", type=int, default=50, help="training epochs")
-parser.add_argument("--batch", type=int, default=64, help="batch size")
+parser.add_argument("--model_dir", type=str, default="cifar10_ran_model", help="model directory")
+parser.add_argument("--num_epochs", type=int, default=50, help="number of training epochs")
+parser.add_argument("--batch_size", type=int, default=64, help="batch size")
 parser.add_argument('--train', action="store_true", help="with training")
 parser.add_argument('--eval', action="store_true", help="with evaluation")
 parser.add_argument('--predict', action="store_true", help="with prediction")
@@ -26,7 +26,12 @@ args = parser.parse_args()
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
-def cifar10_input_fn(data_dir, training, num_epochs=1, batch_size=1):
+def scale(input, input_min, input_max, output_min, output_max):
+
+    return output_min + (input - input_min) / (input_max - input_min) * (output_max - output_min)
+
+
+def cifar10_input_fn(data_dir, training, batch_size, num_epochs):
 
     def download(url, data_dir):
 
@@ -62,7 +67,7 @@ def cifar10_input_fn(data_dir, training, num_epochs=1, batch_size=1):
         if training:
 
             image = tf.image.resize_image_with_crop_or_pad(image, 40, 40)
-            image = tf.random_crop(image, (32, 32, 3))
+            image = tf.random_crop(image, [32, 32, 3])
             image = tf.image.random_flip_left_right(image)
 
         image = tf.image.per_image_standardization(image)
@@ -74,8 +79,8 @@ def cifar10_input_fn(data_dir, training, num_epochs=1, batch_size=1):
         record = tf.decode_raw(bytes, tf.uint8)
 
         image = record[1:]
-        image = tf.reshape(image, (3, 32, 32))
-        image = tf.transpose(image, (1, 2, 0))
+        image = tf.reshape(image, [3, 32, 32])
+        image = tf.transpose(image, [1, 2, 0])
         image = tf.cast(image, tf.float32)
         image = preprocess(image, training)
 
@@ -95,11 +100,11 @@ def cifar10_input_fn(data_dir, training, num_epochs=1, batch_size=1):
     return dataset.make_one_shot_iterator().get_next()
 
 
-def cifar10_model_fn(features, labels, mode, params, channels_first):
+def cifar10_model_fn(features, labels, mode, params, data_format):
 
     inputs = features["image"]
 
-    if channels_first:
+    if data_format == "channels_first":
 
         inputs = tf.transpose(inputs, [0, 3, 1, 2])
 
@@ -113,8 +118,6 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
             pool_size=1,
             strides=1
         ),
-        bottleneck=True,
-        version=2,
         block_params=[
             ran.Model.BlockParam(
                 blocks=5,
@@ -140,10 +143,12 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
                 blocks=1
             )
         ],
+        bottleneck=True,
+        version=2,
         logits_param=ran.Model.DenseParam(
             units=10
         ),
-        channels_first=channels_first
+        data_format=data_format
     )
 
     logits, maps_list, masks_list = ran_model(
@@ -158,11 +163,12 @@ def cifar10_model_fn(features, labels, mode, params, channels_first):
         ),
         "probabilities": tf.nn.softmax(
             logits=logits,
-            name="softmax_tensor"
+            dim=1,
+            name="softmax"
         ),
     }
 
-    if not channels_first:
+    if not data_format == "channels_first":
 
         maps_list = [tf.transpose(maps, [0, 3, 1, 2]) for maps in maps_list]
         masks_list = [tf.transpose(masks, [0, 3, 1, 2]) for masks in masks_list]
@@ -232,17 +238,15 @@ def main(unused_argv):
     cifar10_classifier = tf.estimator.Estimator(
         model_fn=functools.partial(
             cifar10_model_fn,
-            channels_first=False
+            data_format="channels_first"
         ),
-        model_dir=args.model,
+        model_dir=args.model_dir,
         config=tf.estimator.RunConfig().replace(
             session_config=tf.ConfigProto(
                 gpu_options=tf.GPUOptions(
-                    visible_device_list=args.gpu
-                ),
-                device_count={
-                    "GPU": 1
-                }
+                    visible_device_list=args.gpu,
+                    allow_growth=True
+                )
             )
         ),
         params={
@@ -259,50 +263,57 @@ def main(unused_argv):
 
     if args.train:
 
+        train_input_fn = functools.partial(
+            cifar10_input_fn,
+            data_dir="data",
+            training=True,
+            batch_size=args.batch_size,
+            num_epochs=args.num_epochs
+        )
+
+        logging_hook = tf.train.LoggingTensorHook(
+            tensors={
+                "probabilities": "softmax"
+            },
+            every_n_iter=100
+        )
+
         cifar10_classifier.train(
-            input_fn=functools.partial(
-                cifar10_input_fn,
-                data_dir="data",
-                training=True,
-                num_epochs=args.epochs,
-                batch_size=args.batch
-            ),
-            hooks=[
-                tf.train.LoggingTensorHook(
-                    tensors={
-                        "probabilities": "softmax_tensor"
-                    },
-                    every_n_iter=100
-                )
-            ]
+            input_fn=train_input_fn,
+            hooks=[logging_hook]
         )
 
     if args.eval:
 
+        eval_input_fn = functools.partial(
+            cifar10_input_fn,
+            data_dir="data",
+            training=False,
+            batch_size=args.batch_size,
+            num_epochs=1
+        )
+
         eval_results = cifar10_classifier.evaluate(
-            input_fn=functools.partial(
-                cifar10_input_fn,
-                data_dir="data",
-                training=False
-            )
+            input_fn=eval_input_fn
         )
 
         print(eval_results)
 
     if args.predict:
 
+        predict_input_fn = functools.partial(
+            cifar10_input_fn,
+            data_dir="data",
+            training=False,
+            batch_size=args.batch_size,
+            num_epochs=1
+        )
+
         predict_results = cifar10_classifier.predict(
-            input_fn=functools.partial(
-                cifar10_input_fn,
-                data_dir="data",
-                training=False
-            )
+            input_fn=predict_input_fn
         )
 
         for i, predict_result in enumerate(itertools.islice(predict_results, 10)):
-
-            def scale(in_val, in_min, in_max, out_min, out_max):
-                return out_min + (in_val - in_min) / (in_max - in_min) * (out_max - out_min)
 
             image = predict_result["image"]
             maps_list = [predict_result["maps{}".format(i)] for i in range(3)]

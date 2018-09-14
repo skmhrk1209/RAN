@@ -5,7 +5,6 @@ from __future__ import print_function
 import tensorflow as tf
 import collections
 import resnet
-import utils
 
 
 class Model(resnet.Model):
@@ -21,7 +20,7 @@ class Model(resnet.Model):
 
     def __init__(self, filters, initial_conv_param, initial_pool_param,
                  block_params, attention_block_params, bottleneck, version,
-                 logits_param, channels_first):
+                 logits_param, data_format):
 
         self.filters = filters
         self.initial_conv_param = initial_conv_param
@@ -31,8 +30,7 @@ class Model(resnet.Model):
         self.bottleneck = bottleneck
         self.version = version
         self.logits_param = logits_param
-        self.channels_first = channels_first
-        self.data_format = "channels_first" if channels_first else "channels_last"
+        self.data_format = data_format
 
         self.block_fn = ((Model.bottleneck_block_v1 if self.version == 1 else Model.bottleneck_block_v2) if self.bottleneck else
                          (Model.building_block_v1 if self.version == 1 else Model.building_block_v2))
@@ -41,7 +39,7 @@ class Model(resnet.Model):
 
     def __call__(self, inputs, training):
 
-        with tf.variable_scope("resnet"):
+        with tf.variable_scope("ran"):
 
             inputs = tf.layers.conv2d(
                 inputs=inputs,
@@ -56,8 +54,9 @@ class Model(resnet.Model):
 
             if self.version == 1:
 
-                inputs = utils.batch_normalization(self.data_format)(
+                inputs = tf.layers.batch_normalization(
                     inputs=inputs,
+                    axis=1 if self.data_format == "channels_first" else 3,
                     training=training,
                     fused=True
                 )
@@ -104,15 +103,19 @@ class Model(resnet.Model):
 
             if self.version == 2:
 
-                inputs = utils.batch_normalization(self.data_format)(
+                inputs = tf.layers.batch_normalization(
                     inputs=inputs,
+                    axis=1 if self.data_format == "channels_first" else 3,
                     training=training,
                     fused=True
                 )
 
                 inputs = tf.nn.relu(inputs)
 
-            inputs = utils.global_average_pooling2d(self.data_format)(inputs)
+            inputs = tf.reduce_mean(
+                input_tensor=inputs,
+                axis=[2, 3] if self.data_format == "channels_first" else [1, 2]
+            )
 
             inputs = tf.layers.dense(
                 inputs=inputs,
@@ -127,7 +130,9 @@ class Model(resnet.Model):
         inputs = tf.layers.max_pooling2d(
             inputs=inputs,
             pool_size=2,
-            strides=2
+            strides=2,
+            padding="same",
+            data_format=data_format
         )
 
         inputs = Model.block_layer(
@@ -144,7 +149,9 @@ class Model(resnet.Model):
         inputs = tf.layers.max_pooling2d(
             inputs=inputs,
             pool_size=2,
-            strides=2
+            strides=2,
+            padding="same",
+            data_format=data_format
         )
 
         inputs = Model.block_layer(
@@ -169,7 +176,10 @@ class Model(resnet.Model):
             training=training
         )
 
-        inputs = utils.up_sampling2d(2, data_format)(inputs)
+        inputs = tf.keras.layers.UpSampling2D(
+            size=2,
+            data_format=data_format
+        )(inputs)
 
         inputs = Model.block_layer(
             inputs=inputs,
@@ -182,7 +192,10 @@ class Model(resnet.Model):
             training=training
         )
 
-        inputs = utils.up_sampling2d(2, data_format)(inputs)
+        inputs = tf.keras.layers.UpSampling2D(
+            size=2,
+            data_format=data_format
+        )(inputs)
 
         inputs = tf.nn.sigmoid(inputs)
 
