@@ -21,6 +21,7 @@ parser.add_argument('--train', action="store_true", help="with training")
 parser.add_argument('--eval', action="store_true", help="with evaluation")
 parser.add_argument('--predict', action="store_true", help="with prediction")
 parser.add_argument('--gpu', type=str, default="0", help="gpu id")
+parser.add_argument('--data_format', type=str, default="channels_last", help="data_format")
 args = parser.parse_args()
 
 tf.logging.set_verbosity(tf.logging.INFO)
@@ -147,12 +148,12 @@ def cifar10_model_fn(features, labels, mode, params, data_format):
         version=2,
         logits_param=ran.Model.DenseParam(
             units=10
-        ),
-        data_format=data_format
+        )
     )
 
     logits, maps_list, masks_list = ran_model(
         inputs=inputs,
+        data_format=data_format,
         training=mode == tf.estimator.ModeKeys.TRAIN
     )
 
@@ -238,7 +239,7 @@ def main(unused_argv):
     cifar10_classifier = tf.estimator.Estimator(
         model_fn=functools.partial(
             cifar10_model_fn,
-            data_format="channels_first"
+            data_format=args.data_format
         ),
         model_dir=args.model_dir,
         config=tf.estimator.RunConfig().replace(

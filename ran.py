@@ -19,8 +19,7 @@ class Model(resnet.Model):
     AttentionBlockParam = collections.namedtuple("AttentionBlockParam", ("blocks"))
 
     def __init__(self, filters, initial_conv_param, initial_pool_param,
-                 block_params, attention_block_params, bottleneck, version,
-                 logits_param, data_format):
+                 block_params, attention_block_params, bottleneck, version, logits_param):
 
         self.filters = filters
         self.initial_conv_param = initial_conv_param
@@ -30,14 +29,13 @@ class Model(resnet.Model):
         self.bottleneck = bottleneck
         self.version = version
         self.logits_param = logits_param
-        self.data_format = data_format
 
         self.block_fn = ((Model.bottleneck_block_v1 if self.version == 1 else Model.bottleneck_block_v2) if self.bottleneck else
                          (Model.building_block_v1 if self.version == 1 else Model.building_block_v2))
 
         self.projection_shortcut = Model.projection_shortcut
 
-    def __call__(self, inputs, training):
+    def __call__(self, inputs, data_format, training):
 
         with tf.variable_scope("ran"):
 
@@ -47,7 +45,7 @@ class Model(resnet.Model):
                 kernel_size=self.initial_conv_param.kernel_size,
                 strides=self.initial_conv_param.strides,
                 padding="same",
-                data_format=self.data_format,
+                data_format=data_format,
                 use_bias=False,
                 kernel_initializer=tf.variance_scaling_initializer(),
             )
@@ -56,7 +54,7 @@ class Model(resnet.Model):
 
                 inputs = tf.layers.batch_normalization(
                     inputs=inputs,
-                    axis=1 if self.data_format == "channels_first" else 3,
+                    axis=1 if data_format == "channels_first" else 3,
                     training=training,
                     fused=True
                 )
@@ -68,7 +66,7 @@ class Model(resnet.Model):
                 pool_size=self.initial_pool_param.pool_size,
                 strides=self.initial_pool_param.strides,
                 padding="same",
-                data_format=self.data_format
+                data_format=data_format
             )
 
             maps_list = []
@@ -83,7 +81,7 @@ class Model(resnet.Model):
                     filters=self.filters << i,
                     strides=block_param.strides,
                     projection_shortcut=self.projection_shortcut,
-                    data_format=self.data_format,
+                    data_format=data_format,
                     training=training
                 )
 
@@ -92,7 +90,7 @@ class Model(resnet.Model):
                     block_fn=self.block_fn,
                     blocks=attention_block_param.blocks,
                     filters=self.filters << i,
-                    data_format=self.data_format,
+                    data_format=data_format,
                     training=training
                 )
 
@@ -105,7 +103,7 @@ class Model(resnet.Model):
 
                 inputs = tf.layers.batch_normalization(
                     inputs=inputs,
-                    axis=1 if self.data_format == "channels_first" else 3,
+                    axis=1 if data_format == "channels_first" else 3,
                     training=training,
                     fused=True
                 )
@@ -114,7 +112,7 @@ class Model(resnet.Model):
 
             inputs = tf.reduce_mean(
                 input_tensor=inputs,
-                axis=[2, 3] if self.data_format == "channels_first" else [1, 2]
+                axis=[2, 3] if data_format == "channels_first" else [1, 2]
             )
 
             inputs = tf.layers.dense(
